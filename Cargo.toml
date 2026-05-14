@@ -3,6 +3,8 @@ version = "0.5.1"
 edition = "2024"
 license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/aldialimucaj/palo"
+repository = "https://github.com/aldialimucaj/palo"
 keywords = ["orchestration", "developer-tools", "cli", "workspace", "tui"]
 categories = ["command-line-utilities", "development-tools"]
 

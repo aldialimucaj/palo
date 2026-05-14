@@ -120,14 +120,124 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  publish:
-    name: publish release
+  publish-crates:
+    name: publish crates.io
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - build-macos
+    environment: crates.io
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || secrets.CRATES_IO_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify release tag matches workspace version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "palo") | .version')"
+          expected_tag="v${version}"
+
+          if [[ "${RELEASE_TAG}" != "${expected_tag}" ]]; then
+            echo "Release tag ${RELEASE_TAG} does not match workspace version ${version}."
+            exit 1
+          fi
+
+      - name: Test workspace
+        run: cargo test --workspace --locked
+
+      - name: Publish crates in dependency order
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CARGO_REGISTRY_TOKEN:-}" ]]; then
+            echo "CARGO_REGISTRY_TOKEN or CRATES_IO_TOKEN secret is not configured."
+            exit 1
+          fi
+
+          crate_index_path() {
+            local name="$1"
+            local length="${#name}"
+
+            if (( length == 1 )); then
+              printf "1/%s" "${name}"
+            elif (( length == 2 )); then
+              printf "2/%s" "${name}"
+            elif (( length == 3 )); then
+              printf "3/%s/%s" "${name:0:1}" "${name}"
+            else
+              printf "%s/%s/%s" "${name:0:2}" "${name:2:2}" "${name}"
+            fi
+          }
+
+          crate_version_exists() {
+            local name="$1"
+            local version="$2"
+            local path
+            path="$(crate_index_path "${name}")"
+
+            curl --fail --silent "https://index.crates.io/${path}" 2>/dev/null \
+              | grep --fixed-strings --quiet "\"vers\":\"${version}\""
+          }
+
+          wait_for_crate_version() {
+            local name="$1"
+            local version="$2"
+
+            for _ in {1..30}; do
+              if crate_version_exists "${name}" "${version}"; then
+                return 0
+              fi
+              sleep 10
+            done
+
+            echo "${name} ${version} did not appear in the crates.io index in time."
+            exit 1
+          }
+
+          publish_crate() {
+            local package="$1"
+            local name="$2"
+            local version="$3"
+
+            if crate_version_exists "${name}" "${version}"; then
+              echo "${name} ${version} is already published; skipping."
+              return 0
+            fi
+
+            cargo publish --package "${package}" --locked --dry-run
+            cargo publish --package "${package}" --locked
+            wait_for_crate_version "${name}" "${version}"
+          }
+
+          version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "palo") | .version')"
+
+          publish_crate "palo-core" "palo-core" "${version}"
+          publish_crate "palo-projects" "palo-projects" "${version}"
+          publish_crate "palo-tui" "palo-tui" "${version}"
+          publish_crate "palo" "palo" "${version}"
+
+  publish-github-release:
+    name: publish GitHub release
     runs-on: ubuntu-latest
     permissions:
       contents: write
     needs:
       - build
       - build-macos
+      - publish-crates
     steps:
       - name: Download release assets
         uses: actions/download-artifact@v8

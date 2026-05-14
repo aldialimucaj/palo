@@ -1,11 +1,15 @@
 [package]
 name = "palo-tui"
 version.workspace = true
-description = "tui for palo"
+description = "Terminal user interface for Palo local development orchestration"
 authors = ["Aldi Alimucaj <aldi.alimucaj@gmail.com>"]
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 edition.workspace = true
-readme = "README.md"
+readme = "../README.md"
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 palo_core = { package = "palo-core", version = "0.5.1", path = "../palo-core" }
