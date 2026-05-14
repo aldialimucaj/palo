@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use projects::{ProjectAdapter, RustProjectAdapter};
+use palo_projects::{ProjectAdapter, RustProjectAdapter};
 
 fn fixture_path(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use palo_core::config::DEFAULT_CONFIG_FILE_NAME;
 use palo_core::domain::DEFAULT_SERVICE_LOG_RETENTION;
 use palo_core::error::DiscoveryError;
-use projects::{
+use palo_projects::{
     DiscoveredCommand, DiscoveredProject, ProjectKind, adapter_for_kind, detect_project_kind,
 };
 use tracing::{debug, info, warn};
@@ -456,7 +456,7 @@ mod tests {
     use palo_core::config::PaloConfig;
     use palo_core::domain::{LifecycleState, ServiceId};
     use palo_core::orchestration::Orchestrator;
-    use projects::ProjectKind;
+    use palo_projects::ProjectKind;
     use tempfile::TempDir;
     use tokio::runtime::Builder;
     use tokio::time::{sleep, timeout};
@@ -466,7 +466,7 @@ mod tests {
     fn fixture_path(name: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
-            .join("projects")
+            .join("palo-projects")
             .join("tests")
             .join("fixtures")
             .join(name)
@@ -626,7 +626,7 @@ mod tests {
                 r#"
 [package]
 name = "smoke-app"
-version = "0.5.1"
+version = "0.5.5"
 edition = "2024"
 "#,
             )

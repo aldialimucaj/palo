@@ -7,8 +7,8 @@ use palo::init::{InitOptions, run_init};
 use palo::logging::RuntimeLogConfig;
 use palo::r#new::{NewOptions, run_new};
 use palo::run::{RunOptions, load_config, run_app_with_config};
+use palo_projects::ProjectKind;
 use palo_tui::logging::init_tui_tracing;
-use projects::ProjectKind;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
@@ -104,7 +104,7 @@ async fn main() -> ExitCode {
 
 fn init_terminal_tracing() {
     let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,palo=info,projects=info"));
+        .unwrap_or_else(|_| EnvFilter::new("info,palo=info,palo_projects=info"));
 
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
@@ -259,7 +259,7 @@ fn print_help() {
 mod tests {
     use super::{Command, parse_cli};
     use palo::run::RunOptions;
-    use projects::ProjectKind;
+    use palo_projects::ProjectKind;
     use std::path::PathBuf;
 
     #[test]

@@ -1817,7 +1817,7 @@ checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 
 [[package]]
 name = "palo"
-version = "0.5.1"
+version = "0.5.5"
 dependencies = [
  "axum",
  "color-eyre",
@@ -1836,7 +1836,7 @@ dependencies = [
 
 [[package]]
 name = "palo-core"
-version = "0.5.1"
+version = "0.5.5"
 dependencies = [
  "config",
  "globset",
@@ -1858,7 +1858,7 @@ dependencies = [
 
 [[package]]
 name = "palo-projects"
-version = "0.5.1"
+version = "0.5.5"
 dependencies = [
  "globset",
  "palo-core",
@@ -1870,7 +1870,7 @@ dependencies = [
 
 [[package]]
 name = "palo-tui"
-version = "0.5.1"
+version = "0.5.5"
 dependencies = [
  "color-eyre",
  "crossterm",

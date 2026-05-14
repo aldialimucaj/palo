@@ -618,7 +618,7 @@ Internal runtime events use `tracing`, so you can adjust verbosity with
 `RUST_LOG`:
 
 ```sh
-RUST_LOG=debug,palo=debug,palo_core=debug,palo_tui=info palo run
+RUST_LOG=debug,palo=debug,palo_core=debug,palo_projects=debug,palo_tui=info palo run
 ```
 
 ## Workspace Layout
@@ -626,8 +626,8 @@ RUST_LOG=debug,palo=debug,palo_core=debug,palo_tui=info palo run
 ```text
 palo-core/   Core config, domain model, execution, orchestration, events, watch, telemetry
 palo/        CLI binary, runtime wiring, logging, MCP server
-projects/    Project discovery adapters, including Rust workspace discovery
-tui/         Ratatui dashboard and terminal event handling
+palo-projects/    Project discovery adapters, including Rust workspace discovery
+palo-tui/         Ratatui dashboard and terminal event handling
 examples/    Example palo.yml files
 ```
 

@@ -1,4 +1,4 @@
 [package]
 name = "api"
-version = "0.5.1"
+version = "0.5.5"
 edition = "2024"

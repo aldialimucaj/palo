@@ -10,11 +10,8 @@ keywords.workspace = true
 categories.workspace = true
 description = "Project discovery and initialization adapters for Palo"
 
-[lib]
-name = "projects"
-
 [dependencies]
-palo-core = { version = "0.5.1", path = "../palo-core" }
+palo-core = { version = "0.5.5", path = "../palo-core" }
 globset = "0.4.18"
 serde = { version = "1.0.228", features = ["derive"] }
 toml = {version = "1"}

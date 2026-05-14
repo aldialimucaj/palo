@@ -11,9 +11,9 @@ categories.workspace = true
 description = "Local development orchestration for multi-service applications"
 
 [dependencies]
-palo-core = { version = "0.5.1", path = "../palo-core" }
-palo-tui = { version = "0.5.1", path = "../tui" }
-projects = { package = "palo-projects", version = "0.5.1", path = "../projects" }
+palo-core = { version = "0.5.5", path = "../palo-core" }
+palo-tui = { version = "0.5.5", path = "../palo-tui" }
+palo-projects = { version = "0.5.5", path = "../palo-projects" }
 color-eyre = "0.6.3"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
 rmcp = { version = "1.6.0", features = ["transport-streamable-http-server"] }
