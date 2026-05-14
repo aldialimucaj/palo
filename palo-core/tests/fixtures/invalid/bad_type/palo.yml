@@ -1,0 +1,4 @@
+services:
+  worker:
+    type: javascript
+    command: npm run dev

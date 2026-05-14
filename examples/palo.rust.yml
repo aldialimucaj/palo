@@ -1,0 +1,50 @@
+palo:
+  settings:
+    log_retention: 500
+    logs:
+      enabled: true
+      directory: .palo/logs
+      palo: true
+      apps: true
+  mcp:
+    enabled: false
+    host: 127.0.0.1
+    port: 9464
+    path: /mcp
+
+services:
+  api:
+    type: rust
+    autostart: true
+    log_retention: 500
+    executable: target/debug/api
+    working_dir: .
+    env:
+      RUST_LOG: info
+    build:
+      check: ["cargo", "check", "--package", "api", "--bin", "api"]
+      cmd: ["cargo", "build", "--package", "api", "--bin", "api"]
+    healthcheck:
+      http:
+        url: http://127.0.0.1:8080/health
+        method: GET
+        expected_status: 200..399
+      initial_delay: 1s
+      interval: 5s
+      timeout: 2s
+      retries: 30
+    restart:
+      on: change
+      debounce: 2500ms
+    watch:
+      paths:
+        - .
+      include:
+        - "src/**/*.rs"
+        - "Cargo.toml"
+      exclude:
+        - "target/**"
+      ignore_paths:
+        - ".palo"
+      ignore_regex:
+        - "(^|/)generated/"

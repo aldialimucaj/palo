@@ -1,0 +1,54 @@
+palo:
+  settings:
+    log_retention: 2000
+    telemetry_refresh: 1s
+    logs:
+      enabled: true
+      directory: .palo/logs
+      palo: true
+      apps: true
+  mcp:
+    enabled: true
+    host: 127.0.0.1
+    port: 9464
+    path: /mcp
+    log_retention: 256
+
+services:
+  api:
+    type: rust
+    autostart: true
+    target: debug
+    log_retention: 750
+    command: cargo run -p api
+    working_dir: .
+    env:
+      RUST_LOG: info
+    depends_on:
+      - db
+    build:
+      check: cargo check -p api
+      cmd: cargo build -p api
+    restart:
+      on: change
+    watch:
+      dir:
+        - .
+      include:
+        - "src/**"
+      exclude:
+        - "target/**"
+      ignore_paths:
+        - ".palo"
+      ignore_regex:
+        - "(^|/)\\.cache/"
+      debounce: 500ms
+    hooks:
+      pre_build:
+        - cargo fmt --check
+      post_start: echo api started
+
+  db:
+    executable: ["postgres", "-D", "data"]
+    restart:
+      on: never

@@ -1,0 +1,22 @@
+[workspace.package]
+version = "0.5.1"
+edition = "2024"
+license = "MIT"
+readme = "README.md"
+keywords = ["orchestration", "developer-tools", "cli", "workspace", "tui"]
+categories = ["command-line-utilities", "development-tools"]
+
+[workspace]
+members = [
+    "palo-core",
+    "palo",
+    "projects",
+    "tui",
+]
+resolver = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

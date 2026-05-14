@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and publish, for example v0.1.0"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: palo
+            archive: tar.gz
+          - platform: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: palo.exe
+            archive: zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --locked --release -p palo --target ${{ matrix.target }}
+
+      - name: Package release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          asset_dir="palo-${RELEASE_TAG}-${{ matrix.platform }}"
+          mkdir -p "dist" "${asset_dir}"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "${asset_dir}/"
+          cp README.md LICENSE "${asset_dir}/"
+
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            powershell -NoProfile -Command "Compress-Archive -Path '${asset_dir}' -DestinationPath 'dist/${asset_dir}.zip' -Force"
+          else
+            tar -czf "dist/${asset_dir}.tar.gz" "${asset_dir}"
+          fi
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: palo-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  build-macos:
+    name: build macos-universal
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build x86_64 release binary
+        run: cargo build --locked --release -p palo --target x86_64-apple-darwin
+
+      - name: Build aarch64 release binary
+        run: cargo build --locked --release -p palo --target aarch64-apple-darwin
+
+      - name: Package release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          asset_dir="palo-${RELEASE_TAG}-macos-universal"
+          mkdir -p "dist" "${asset_dir}"
+          lipo -create \
+            "target/x86_64-apple-darwin/release/palo" \
+            "target/aarch64-apple-darwin/release/palo" \
+            -output "${asset_dir}/palo"
+          chmod +x "${asset_dir}/palo"
+          cp README.md LICENSE "${asset_dir}/"
+          tar -czf "dist/${asset_dir}.tar.gz" "${asset_dir}"
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: palo-macos-universal
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - build
+      - build-macos
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > SHASUMS256.txt
+
+      - name: Upload assets to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Palo ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: dist/*

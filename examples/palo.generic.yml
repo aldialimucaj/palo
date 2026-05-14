@@ -1,0 +1,25 @@
+palo:
+  settings:
+    log_retention: 500
+    logs:
+      enabled: true
+      directory: .palo/logs
+      palo: true
+      apps: true
+  mcp:
+    enabled: false
+    host: 127.0.0.1
+    port: 9464
+    path: /mcp
+
+services:
+  app:
+    type: generic
+    autostart: false
+    log_retention: 500
+    command: ["./run-local-service"]
+    working_dir: .
+    healthcheck:
+      url: http://127.0.0.1:8080/health
+    restart:
+      on: manual

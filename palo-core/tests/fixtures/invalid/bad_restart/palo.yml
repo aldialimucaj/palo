@@ -1,0 +1,11 @@
+services:
+  api:
+    executable: api
+    restart:
+      on: change
+      backoff: 1s
+      max_crash_retries: 5
+
+  worker:
+    restart:
+      on: crash

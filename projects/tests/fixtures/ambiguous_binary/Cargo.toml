@@ -1,0 +1,4 @@
+[package]
+name = "ambiguous-app"
+version = "0.5.1"
+edition = "2024"

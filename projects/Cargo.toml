@@ -1,0 +1,22 @@
+[package]
+name = "palo-projects"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "../README.md"
+keywords.workspace = true
+categories.workspace = true
+description = "Project discovery and initialization adapters for Palo"
+
+[lib]
+name = "projects"
+
+[dependencies]
+palo-core = { version = "0.5.1", path = "../palo-core" }
+globset = "0.4.18"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = {version = "1"}
+tracing = "0.1.41"
+
+[dev-dependencies]
+tempfile = "3.20.0"
