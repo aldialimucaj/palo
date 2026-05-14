@@ -320,6 +320,7 @@ fn stop_service_terminates_children_spawned_by_shell_wrapper() {
     });
 }
 
+#[cfg(unix)]
 async fn wait_for_file(path: &std::path::Path) {
     timeout(Duration::from_secs(5), async {
         loop {

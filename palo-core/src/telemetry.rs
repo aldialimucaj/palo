@@ -204,6 +204,7 @@ fn collect_open_ports(pid: u32, pids: &[u32]) -> Vec<u16> {
 
     #[cfg(not(unix))]
     {
+        let _ = pids;
         debug!(
             pid,
             "open port telemetry is not supported on this platform yet"

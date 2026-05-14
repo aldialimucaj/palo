@@ -9,6 +9,10 @@ fn fixture_path(name: &str) -> PathBuf {
         .join(name)
 }
 
+fn executable_name(binary_name: &str) -> String {
+    format!("{binary_name}{}", std::env::consts::EXE_SUFFIX)
+}
+
 #[test]
 fn discovers_single_crate_rust_project() {
     let adapter = RustProjectAdapter;
@@ -32,7 +36,7 @@ fn discovers_single_crate_rust_project() {
         fixture_path("single_crate")
             .join("target")
             .join("debug")
-            .join("single-app")
+            .join(executable_name("single-app"))
     );
     assert!(
         service

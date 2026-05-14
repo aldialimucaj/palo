@@ -520,7 +520,10 @@ mod tests {
             .expect("generated palo.yml should be readable");
         assert!(rendered.contains("type: rust"));
         assert!(rendered.contains("worker-daemon"));
-        assert!(rendered.contains(r#"executable: ["target/debug/api"]"#));
+        assert!(rendered.contains(&format!(
+            r#"executable: ["target/debug/api{}"]"#,
+            std::env::consts::EXE_SUFFIX
+        )));
         assert!(
             rendered.contains(r#"check: ["cargo", "check", "--package", "api", "--bin", "api"]"#)
         );
@@ -686,7 +689,14 @@ fn main() {
                 .get(&ServiceId::new("smoke-app"))
                 .expect("runtime should exist");
             assert_eq!(runtime.lifecycle, LifecycleState::Running);
-            assert!(tempdir.path().join("target/debug/smoke-app").exists());
+            assert!(
+                tempdir
+                    .path()
+                    .join("target")
+                    .join("debug")
+                    .join(format!("smoke-app{}", std::env::consts::EXE_SUFFIX))
+                    .exists()
+            );
 
             orchestrator
                 .stop_service(&ServiceId::new("smoke-app"))

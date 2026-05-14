@@ -425,6 +425,7 @@ fn build_service(
     package_name: &str,
     binary_name: &str,
 ) -> DiscoveredService {
+    let executable_name = format!("{binary_name}{}", std::env::consts::EXE_SUFFIX);
     let mut watch_paths = vec![
         workspace_root.join(MANIFEST_FILE_NAME),
         manifest_path.to_path_buf(),
@@ -442,7 +443,10 @@ fn build_service(
         manifest_path: manifest_path.to_path_buf(),
         package_root: package_root.to_path_buf(),
         run: DiscoveredCommand::new(
-            target_dir.join(binary_name).to_string_lossy().into_owned(),
+            target_dir
+                .join(&executable_name)
+                .to_string_lossy()
+                .into_owned(),
             Vec::<String>::new(),
             workspace_root,
         ),
@@ -457,8 +461,8 @@ fn build_service(
             workspace_root,
         ),
         executable: ExecutableArtifact {
-            name: binary_name.to_string(),
-            debug_path: target_dir.join(binary_name),
+            name: executable_name.clone(),
+            debug_path: target_dir.join(executable_name),
         },
         watch_paths,
     }

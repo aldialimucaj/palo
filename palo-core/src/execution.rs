@@ -7,7 +7,9 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
-use tokio::time::{Instant, sleep, timeout};
+#[cfg(unix)]
+use tokio::time::Instant;
+use tokio::time::{sleep, timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
