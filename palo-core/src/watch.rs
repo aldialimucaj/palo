@@ -261,7 +261,7 @@ impl ServiceWatcher {
 
     fn is_ignored_path(&self, absolute_path: &Path, relative_path: &Path) -> bool {
         self.config.ignore_paths.iter().any(|ignored| {
-            if ignored.is_absolute() {
+            if ignored.is_absolute() || ignored.has_root() {
                 let ignored = normalize_path(ignored);
                 absolute_path == ignored || absolute_path.starts_with(&ignored)
             } else {
