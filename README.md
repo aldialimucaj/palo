@@ -672,19 +672,15 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-## Publishing
+## Releasing
 
-The workspace contains multiple publishable crates. Publish them in dependency
-order:
+Releases are created by the GitHub Actions release workflow. The workflow runs
+only when a version tag is pushed, and the tag must match the workspace package
+version exactly.
 
-```sh
-cargo publish -p palo-core
-cargo publish -p palo-projects
-cargo publish -p palo-tui
-cargo publish -p palo
-```
-
-Recommended validation before publishing:
+Before releasing, update the workspace version in `Cargo.toml` and any internal
+workspace dependency versions in member manifests, then validate the release
+locally:
 
 ```sh
 cargo package -p palo-core
@@ -693,6 +689,21 @@ cargo package -p palo-tui
 cargo package -p palo
 cargo test --workspace
 ```
+
+Create and push the matching version tag:
+
+```sh
+git tag v0.5.1
+git push origin v0.5.1
+```
+
+Replace `0.5.1` with the new version. On a successful tag build, GitHub Actions
+builds release binaries, publishes the crates to crates.io in dependency order,
+and creates the GitHub release with packaged assets.
+
+The repository must have a crates.io token configured as either
+`CARGO_REGISTRY_TOKEN` or `CRATES_IO_TOKEN` in GitHub Actions secrets. The
+workflow also supports manual dispatch with an existing tag.
 
 ## Examples
 
