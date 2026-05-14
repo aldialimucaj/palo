@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, AtomicUsize, Ordering};
 use std::time::Duration;
@@ -131,17 +132,36 @@ async fn wait_for_file_contents(path: &std::path::Path, expected: &str) {
     .expect("timed out waiting for file contents");
 }
 
-fn counted_long_running_script(path: &std::path::Path) -> String {
+fn shell_path(path: &Path) -> String {
+    shell_quote(&path.display().to_string())
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+fn counted_long_running_script(path: &Path) -> String {
+    let path = shell_path(path);
     format!(
-        "count=$(cat '{path}' 2>/dev/null || printf 0); count=$((count + 1)); printf \"%s\" \"$count\" > '{path}'; trap 'exit 0' TERM; while :; do sleep 1; done",
-        path = path.display()
+        "count=$(cat {path} 2>/dev/null || printf 0); count=$((count + 1)); printf \"%s\" \"$count\" > {path}; trap 'exit 0' TERM; while :; do sleep 1; done"
     )
 }
 
-fn append_token_command(path: &std::path::Path, token: &str) -> CommandSpec {
+fn append_token_command(path: &Path, token: &str) -> CommandSpec {
     CommandSpec::new("sh").with_args([
         "-c".to_string(),
-        format!("printf '{token}\\n' >> '{}'", path.display()),
+        format!("printf '{token}\\n' >> {}", shell_path(path)),
+    ])
+}
+
+fn append_token_then_sleep_command(path: &Path, token: &str, sleep_for: Duration) -> CommandSpec {
+    CommandSpec::new("sh").with_args([
+        "-c".to_string(),
+        format!(
+            "printf '{token}\\n' >> {}; sleep {}",
+            shell_path(path),
+            sleep_for.as_secs_f64()
+        ),
     ])
 }
 
@@ -300,9 +320,10 @@ fn runtime_hooks_run_in_phase_order_around_service_lifecycle() {
     runtime().block_on(async {
         let tempdir = tempfile::tempdir().expect("tempdir should exist");
         let hook_log = tempdir.path().join("hook-order");
+        let hook_log_path = shell_path(&hook_log);
         let app_script = format!(
-            "grep -qx pre-start-1 '{path}' || exit 17; grep -qx pre-start-2 '{path}' || exit 18; while ! grep -qx post-start-2 '{path}' 2>/dev/null; do sleep 0.01; done; printf 'app-start\\n' >> '{path}'; trap \"printf 'app-stop\\n' >> '{path}'; exit 0\" TERM; while :; do sleep 1; done",
-            path = hook_log.display()
+            "grep -qx pre-start-1 {path} || exit 17; grep -qx pre-start-2 {path} || exit 18; while ! grep -qx post-start-2 {path} 2>/dev/null; do sleep 0.01; done; printf 'app-start\\n' >> {path}; while ! grep -qx pre-stop-2 {path} 2>/dev/null; do sleep 0.01; done; printf 'app-stop\\n' >> {path}; while :; do sleep 1; done",
+            path = hook_log_path
         );
         let mut service = service_with_command("api", &app_script);
         service.hooks = vec![
@@ -339,7 +360,11 @@ fn runtime_hooks_run_in_phase_order_around_service_lifecycle() {
             HookDefinition {
                 name: "pre-stop-2".to_string(),
                 phase: HookPhase::PreStop,
-                command: append_token_command(&hook_log, "pre-stop-2"),
+                command: append_token_then_sleep_command(
+                    &hook_log,
+                    "pre-stop-2",
+                    Duration::from_millis(500),
+                ),
                 required: true,
             },
             HookDefinition {
@@ -390,13 +415,13 @@ fn readiness_check_blocks_dependents_until_dependency_is_ready() {
         let api_start_path = tempdir.path().join("api-started");
 
         let db_script = format!(
-            "(sleep 0.2; touch '{ready}') & trap 'exit 0' TERM; while :; do sleep 1; done",
-            ready = ready_path.display()
+            "(sleep 0.2; touch {ready}) & trap 'exit 0' TERM; while :; do sleep 1; done",
+            ready = shell_path(&ready_path)
         );
         let readiness_script = format!(
-            "count=$(cat '{count}' 2>/dev/null || printf 0); count=$((count + 1)); printf \"%s\" \"$count\" > '{count}'; test -f '{ready}'",
-            count = probe_count_path.display(),
-            ready = ready_path.display()
+            "count=$(cat {count} 2>/dev/null || printf 0); count=$((count + 1)); printf \"%s\" \"$count\" > {count}; test -f {ready}",
+            count = shell_path(&probe_count_path),
+            ready = shell_path(&ready_path)
         );
 
         let mut db = service_with_command("db", &db_script);
@@ -409,8 +434,8 @@ fn readiness_check_blocks_dependents_until_dependency_is_ready() {
         });
 
         let api_script = format!(
-            "printf started > '{}'; trap 'exit 0' TERM; while :; do sleep 1; done",
-            api_start_path.display()
+            "printf started > {}; trap 'exit 0' TERM; while :; do sleep 1; done",
+            shell_path(&api_start_path)
         );
         let mut api = service_with_command("api", &api_script);
         api.depends_on = vec![ServiceId::new("db")];
@@ -447,8 +472,8 @@ fn http_healthcheck_blocks_dependents_until_success() {
         db.healthcheck = Some(http_healthcheck(url, Duration::from_millis(40), 10));
 
         let api_script = format!(
-            "printf started > '{}'; trap 'exit 0' TERM; while :; do sleep 1; done",
-            api_start_path.display()
+            "printf started > {}; trap 'exit 0' TERM; while :; do sleep 1; done",
+            shell_path(&api_start_path)
         );
         let mut api = service_with_command("api", &api_script);
         api.depends_on = vec![ServiceId::new("db")];
@@ -675,9 +700,10 @@ fn restarts_crashing_service_until_retry_limit_is_reached() {
     runtime().block_on(async {
         let tempdir = tempfile::tempdir().expect("tempdir should exist");
         let counter_path = tempdir.path().join("crash-count");
+        let counter_path_arg = shell_path(&counter_path);
         let script = format!(
             "count=$(cat {path} 2>/dev/null || printf 0); count=$((count + 1)); printf \"%s\" \"$count\" > {path}; exit 1",
-            path = counter_path.display()
+            path = counter_path_arg
         );
 
         let mut worker = service_with_command("worker", &script);
@@ -705,10 +731,7 @@ fn watch_restart_honors_debounce_for_on_change_services() {
     runtime().block_on(async {
         let tempdir = tempfile::tempdir().expect("tempdir should exist");
         let counter_path = tempdir.path().join("watch-count");
-        let script = format!(
-            "count=$(cat {path} 2>/dev/null || printf 0); count=$((count + 1)); printf \"%s\" \"$count\" > {path}; trap 'exit 0' TERM; while :; do sleep 1; done",
-            path = counter_path.display()
-        );
+        let script = counted_long_running_script(&counter_path);
 
         let mut worker = service_with_command("worker", &script);
         worker.restart = RestartPolicy::OnChange;
@@ -838,8 +861,8 @@ fn standalone_build_runs_build_pipeline_without_starting_service() {
     runtime().block_on(async {
         let tempdir = tempfile::tempdir().expect("tempdir should exist");
         let marker_path = tempdir.path().join("build-marker");
-        let check_script = format!("printf check >> {}", marker_path.display());
-        let build_script = format!("printf build >> {}", marker_path.display());
+        let check_script = format!("printf check >> {}", shell_path(&marker_path));
+        let build_script = format!("printf build >> {}", shell_path(&marker_path));
 
         let mut service = service_with_command("api", "exit 99");
         service.build = BuildDefinition {
