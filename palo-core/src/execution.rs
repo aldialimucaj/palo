@@ -23,6 +23,7 @@ use crate::events::{
 
 const DEFAULT_EVENT_BUS_CAPACITY: usize = 512;
 const DEFAULT_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
+const OUTPUT_FORWARDER_DRAIN_TIMEOUT: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessResult {
@@ -609,10 +610,24 @@ async fn monitor_process(
     }?;
 
     if let Some(task) = stdout_task {
-        let _ = task.await;
+        drain_output_forwarder(
+            &service_id,
+            &stage,
+            LogStream::Stdout,
+            task,
+            OUTPUT_FORWARDER_DRAIN_TIMEOUT,
+        )
+        .await;
     }
     if let Some(task) = stderr_task {
-        let _ = task.await;
+        drain_output_forwarder(
+            &service_id,
+            &stage,
+            LogStream::Stderr,
+            task,
+            OUTPUT_FORWARDER_DRAIN_TIMEOUT,
+        )
+        .await;
     }
 
     let result = ProcessResult {
@@ -688,6 +703,46 @@ async fn forward_output<R>(
                 ));
                 break;
             }
+        }
+    }
+}
+
+async fn drain_output_forwarder(
+    service_id: &ServiceId,
+    stage: &PipelineStage,
+    stream: LogStream,
+    mut task: JoinHandle<()>,
+    drain_timeout: Duration,
+) {
+    match timeout(drain_timeout, &mut task).await {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) if error.is_cancelled() => {
+            debug!(
+                service_id = %service_id,
+                stage = stage.description(),
+                stream = ?stream,
+                "process output forwarder was cancelled",
+            );
+        }
+        Ok(Err(error)) => {
+            warn!(
+                service_id = %service_id,
+                stage = stage.description(),
+                stream = ?stream,
+                error = %error,
+                "process output forwarder failed",
+            );
+        }
+        Err(_) => {
+            warn!(
+                service_id = %service_id,
+                stage = stage.description(),
+                stream = ?stream,
+                timeout_ms = drain_timeout.as_millis(),
+                "process output forwarder did not finish after child exit; aborting log drain",
+            );
+            task.abort();
+            let _ = task.await;
         }
     }
 }
@@ -794,7 +849,64 @@ async fn terminate_child(
         }
     }
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        if let Some(pid) = child.id() {
+            let pid_arg = pid.to_string();
+            info!(
+                service_id = %service_id,
+                stage = stage.description(),
+                pid,
+                "terminating Windows service process tree",
+            );
+
+            let taskkill_status = Command::new("taskkill")
+                .args(["/PID", pid_arg.as_str(), "/T", "/F"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .await;
+
+            match taskkill_status {
+                Ok(status) if status.success() => {}
+                Ok(status) => {
+                    warn!(
+                        service_id = %service_id,
+                        stage = stage.description(),
+                        pid,
+                        exit_code = status.code(),
+                        "taskkill did not successfully terminate service process tree; falling back to child kill",
+                    );
+                    child.start_kill().map_err(|error| {
+                        PaloError::Process(ProcessError::new(
+                            service_id.clone(),
+                            ProcessOperation::Stop,
+                            format!("failed to stop child process: {error}"),
+                        ))
+                    })?;
+                }
+                Err(error) => {
+                    warn!(
+                        service_id = %service_id,
+                        stage = stage.description(),
+                        pid,
+                        error = %error,
+                        "failed to run taskkill for service process tree; falling back to child kill",
+                    );
+                    child.start_kill().map_err(|kill_error| {
+                        PaloError::Process(ProcessError::new(
+                            service_id.clone(),
+                            ProcessOperation::Stop,
+                            format!("failed to stop child process: {kill_error}"),
+                        ))
+                    })?;
+                }
+            }
+        }
+    }
+
+    #[cfg(all(not(unix), not(windows)))]
     {
         child.start_kill().map_err(|error| {
             PaloError::Process(ProcessError::new(
