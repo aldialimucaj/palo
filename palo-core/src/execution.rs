@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -706,7 +707,16 @@ fn spawn_child(
         "spawning child process",
     );
 
-    let mut child = Command::new(&command.program);
+    let program = program_for_spawn(command);
+    debug!(
+        service_id = %service_id,
+        stage = stage.description(),
+        configured_program = %command.program,
+        resolved_program = %program.display(),
+        "resolved child process program",
+    );
+
+    let mut child = Command::new(&program);
     child.args(&command.args);
     child.envs(&command.env);
     child.stdin(Stdio::null());
@@ -729,10 +739,27 @@ fn spawn_child(
             command
                 .working_dir
                 .as_deref()
-                .unwrap_or(std::path::Path::new("."))
+                .unwrap_or(Path::new("."))
                 .display()
         )
     })
+}
+
+fn program_for_spawn(command: &CommandSpec) -> PathBuf {
+    let program = Path::new(&command.program);
+    if program.is_absolute() || !program_has_path_component(&command.program) {
+        return program.to_path_buf();
+    }
+
+    command
+        .working_dir
+        .as_ref()
+        .map(|working_dir| working_dir.join(program))
+        .unwrap_or_else(|| program.to_path_buf())
+}
+
+fn program_has_path_component(program: &str) -> bool {
+    program.contains('/') || program.contains('\\')
 }
 
 async fn terminate_child(
@@ -1028,6 +1055,23 @@ mod tests {
             ],
             log_retention: DEFAULT_SERVICE_LOG_RETENTION,
         }
+    }
+
+    #[test]
+    fn spawn_program_resolves_relative_path_against_working_dir() {
+        let command = CommandSpec::new("target/debug/smoke-app.exe").with_working_dir("workspace");
+
+        assert_eq!(
+            program_for_spawn(&command),
+            PathBuf::from("workspace").join("target/debug/smoke-app.exe")
+        );
+    }
+
+    #[test]
+    fn spawn_program_leaves_pathless_command_for_system_lookup() {
+        let command = CommandSpec::new("cargo").with_working_dir("workspace");
+
+        assert_eq!(program_for_spawn(&command), PathBuf::from("cargo"));
     }
 
     #[test]
