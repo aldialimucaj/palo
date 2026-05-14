@@ -69,7 +69,7 @@ jobs:
           fi
 
       - name: Upload release asset
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: palo-${{ matrix.platform }}
           path: dist/*
@@ -114,7 +114,7 @@ jobs:
           tar -czf "dist/${asset_dir}.tar.gz" "${asset_dir}"
 
       - name: Upload release asset
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: palo-macos-universal
           path: dist/*
