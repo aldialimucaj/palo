@@ -31,7 +31,7 @@ tokio-util = "0.7.16"
 nix = { version = "0.31.2", features = ["signal", "process"] }
 sysinfo = "0.39.1"
 rmcp = "1.6.0"
-reqwest = { version = "0.13.3", default-features = false, features = ["rustls"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["rustls"] }
 
 
 [dev-dependencies]
